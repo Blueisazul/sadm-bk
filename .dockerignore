@@ -1,0 +1,13 @@
+env/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.h5
+models/
+dataset_test/
+.git
+.gitignore
+*.log
