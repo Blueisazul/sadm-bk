@@ -4,7 +4,7 @@ gunicorn
 numpy
 pillow
 opencv-python
-tensorflow
+tensorflow-cpu==2.13.0
 h5py
 pydantic
 python-multipart
