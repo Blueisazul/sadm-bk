@@ -36,5 +36,15 @@ async def clasificar_imagen(file: UploadFile = File(...)):
             detail={"error": str(e), "contexto": "Error interno en el motor de inferencia Keras"}
         )
 
+# Endpoint simple de healthcheck
+@app.get("/")
+async def root():
+    return {"status": "ok", "service": "API de Asistencia Diagnóstica Mamaria"}
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
