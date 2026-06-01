@@ -1,0 +1,35 @@
+# Python virtualenv
+env/
+.venv/
+venv/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Environment files
+.env
+
+# Models and datasets
+models/
+*.keras
+*.h5
+dataset_test/
+
+# Logs
+*.log
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Misc
+*.sqlite3
