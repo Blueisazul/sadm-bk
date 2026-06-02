@@ -25,23 +25,31 @@ if not os.path.exists(MODEL_PATH):
 
 print("--> [SADM] Iniciando desempaquetado preventivo profundo del formato .keras...")
 
-# === PARCHE RECURSIVO AVANZADO DE CONFIGURACIÓN JSON ===
+# === PARCHE RECURSIVO MULTI-CAPA DE CONFIGURACIÓN JSON ===
 def sanitizar_estructura_json(data):
-    """Rastrea de forma recursiva todo el JSON para eliminar 'batch_shape' en cualquier InputLayer"""
+    """Rastrea de forma recursiva todo el JSON para corregir incompatibilidades de Keras 2/3"""
     if isinstance(data, dict):
-        # Si es una capa de entrada con la propiedad problemática, la transformamos
-        if data.get("class_name") == "InputLayer" and "batch_shape" in data.get("config", {}):
-            batch_shape = data["config"]["batch_shape"]
-            data["config"]["input_shape"] = batch_shape[1:]
-            data["config"].pop("batch_shape", None)
-            print(f"--> [PARCHE CRÍTICO] 'batch_shape' eliminado con éxito de: {data['config'].get('name')}")
+        class_name = data.get("class_name", "")
+        config = data.get("config", {})
+        
+        # 1. Parche para capas de Entrada
+        if class_name == "InputLayer" and "batch_shape" in config:
+            batch_shape = config["batch_shape"]
+            config["input_shape"] = batch_shape[1:]
+            config.pop("batch_shape", None)
+            print(f"--> [PARCHE CRÍTICO] 'batch_shape' eliminado con éxito de: {config.get('name')}")
+        
+        # 2. Parche para capas de Preprocesamiento / Augmentación (RandomFlip, RandomRotation, etc.)
+        if "Random" in class_name and "data_format" in config:
+            config.pop("data_format", None)
+            print(f"--> [PARCHE CRÍTICO] 'data_format' obsoleto eliminado de la capa: {config.get('name')} ({class_name})")
         
         # Continuar rastreando recursivamente dentro del diccionario
         for clave, valor in data.items():
             sanitizar_estructura_json(valor)
             
     elif isinstance(data, list):
-        # Continuar rastreando si nos topamos con listas de capas
+        # Continuar rastreando si nos topamos con listas de capas u objetos anidados
         for elemento in data:
             sanitizar_estructura_json(elemento)
 
@@ -57,7 +65,7 @@ try:
                 if item.filename == "config.json":
                     config_data = json.loads(buffer.decode('utf-8'))
                     
-                    # Ejecutamos la desinfección profunda en todo el árbol del JSON
+                    # Ejecutamos la desinfección profunda multi-capa
                     sanitizar_estructura_json(config_data)
                     
                     buffer = json.dumps(config_data).encode('utf-8')
