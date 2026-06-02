@@ -1,25 +1,12 @@
 import os
 import time
+import json
+import zipfile
+import io
+import tempfile
 import numpy as np
-
-# 1. Forzar la importación base de TensorFlow
 import tensorflow as tf
-
-# === PARCHE INTEGRAL DE DESERIALIZACIÓN PARA TF_KERAS CLÁSICO ===
-# Interceptamos la capa de entrada del paquete que está usando el servidor
 import tf_keras
-from tf_keras.layers import InputLayer
-
-class CompatibleInputLayer(InputLayer):
-    def __init__(self, *args, **kwargs):
-        # Si el deserializador encuentra 'batch_shape', lo adaptamos al formato moderno en vivo
-        if 'batch_shape' in kwargs:
-            kwargs['input_shape'] = kwargs.pop('batch_shape')[1:]
-        super().__init__(*args, **kwargs)
-
-# Inyectamos el parche en los objetos personalizados globales de tf_keras
-tf_keras.utils.get_custom_objects()['InputLayer'] = CompatibleInputLayer
-# ================================================================
 
 from app.utils import procesar_bytes_imagen, generar_gradcam_base64
 
@@ -37,11 +24,53 @@ if not os.path.exists(MODEL_PATH):
     else:
         raise FileNotFoundError(f"El archivo del modelo no existe en: {MODEL_PATH}")
 
-print("--> [SADM] Cargando estructura de red neuronal con el parche adaptativo...")
+print("--> [SADM] Iniciando desempaquetado preventivo del formato .keras...")
 
-# CARGA CRÍTICA: Forzamos el uso de tf_keras.models en lugar de tf.keras para asegurar el aislamiento
-model = tf_keras.models.load_model(MODEL_PATH, custom_objects={'InputLayer': CompatibleInputLayer})
+# === PARCHE QUIRÚRGICO DE CONFIGURACIÓN JSON (Solución Definitiva) ===
+try:
+    # Creamos un archivo temporal para guardar el modelo sanitizado
+    temp_dir = tempfile.gettempdir()
+    SANUTIZED_MODEL_PATH = os.path.join(temp_dir, "sanitized_model.keras")
+    
+    # Abrimos el archivo original como un ZIP
+    with zipfile.ZipFile(MODEL_PATH, 'r') as zin:
+        with zipfile.ZipFile(SANUTIZED_MODEL_PATH, 'w') as zout:
+            for item in zin.infolist():
+                buffer = zin.read(item.filename)
+                
+                # Si encontramos el JSON de configuración de la arquitectura, lo modificamos
+                if item.filename == "config.json":
+                    config_data = json.loads(buffer.decode('utf-8'))
+                    
+                    # Buscamos la capa de entrada en la estructura del secuencial
+                    if "config" in config_data and "layers" in config_data["config"]:
+                        for layer in config_data["config"]["layers"]:
+                            if layer.get("class_name") == "InputLayer" and "batch_shape" in layer.get("config", {}):
+                                # Extraemos la tupla de dimensiones espaciales removiendo el lote (None)
+                                batch_shape = layer["config"]["batch_shape"]
+                                # Convertimos [None, 224, 224, 1] -> [224, 224, 1]
+                                layer["config"]["input_shape"] = batch_shape[1:]
+                                # Removemos la clave que rompe Keras
+                                layer["config"].pop("batch_shape", None)
+                                print("--> [PARCHE SUCCESS] Argumento 'batch_shape' eliminado de la estructura JSON.")
+                    
+                    buffer = json.dumps(config_data).encode('utf-8')
+                
+                # Escribimos el componente en el nuevo archivo temporal
+                zout.writestr(item, buffer)
+                
+    # Reemplazamos la ruta de carga por la del modelo corregido
+    LOAD_PATH = SANUTIZED_MODEL_PATH
+    print("--> [SADM] Estructura JSON parchada con éxito en espacio temporal.")
 
+except Exception as e:
+    print(f"⚠️ [AVISO PARCHE] No se pudo alterar el ZIP interno: {str(e)}. Intentando carga directa.")
+    LOAD_PATH = MODEL_PATH
+
+# =====================================================================
+
+print("--> [SADM] Cargando estructura de red neuronal en tf_keras...")
+model = tf_keras.models.load_model(LOAD_PATH)
 print("✅ [SADM EN ARRANQUE] Modelo Keras cargado con éxito en memoria.\n")
 
 
