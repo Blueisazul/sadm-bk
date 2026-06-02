@@ -47,13 +47,11 @@ def sanitizar_estructura_json(data):
         # 3. Parche adaptativo para DTypePolicy (Conversión de objeto de Keras 3 a string clásico)
         if "dtype" in data and isinstance(data["dtype"], dict):
             dtype_dict = data["dtype"]
-            # Extraer el nombre de la política (ej: 'mixed_float16' o 'float32')
             policy_name = dtype_dict.get("config", {}).get("name") or dtype_dict.get("class_name")
             if policy_name:
                 data["dtype"] = policy_name
                 print(f"--> [PARCHE CRÍTICO] DTypePolicy convertido a string plano: '{policy_name}'")
 
-        # Algunas capas guardan el dtype directamente dentro de su propio bloque 'config'
         if isinstance(config, dict) and "dtype" in config and isinstance(config["dtype"], dict):
             dtype_dict = config["dtype"]
             policy_name = dtype_dict.get("config", {}).get("name") or dtype_dict.get("class_name")
@@ -66,7 +64,6 @@ def sanitizar_estructura_json(data):
             sanitizar_estructura_json(valor)
             
     elif isinstance(data, list):
-        # Continuar rastreando si nos topamos con listas de capas u objetos anidados
         for elemento in data:
             sanitizar_estructura_json(elemento)
 
@@ -81,10 +78,7 @@ try:
                 
                 if item.filename == "config.json":
                     config_data = json.loads(buffer.decode('utf-8'))
-                    
-                    # Ejecutamos la desinfección profunda multi-capa y multi-política
                     sanitizar_estructura_json(config_data)
-                    
                     buffer = json.dumps(config_data).encode('utf-8')
                 
                 zout.writestr(item, buffer)
@@ -98,7 +92,8 @@ except Exception as e:
 # =====================================================================
 
 print("--> [SADM] Cargando estructura de red neuronal en tf_keras...")
-model = tf_keras.models.load_model(LOAD_PATH)
+# CAMBIO CRÍTICO: Se añade compile=False para evitar el error del optimizador Adam en producción
+model = tf_keras.models.load_model(LOAD_PATH, compile=False)
 print("✅ [SADM EN ARRANQUE] Modelo Keras cargado con éxito en memoria.\n")
 
 
