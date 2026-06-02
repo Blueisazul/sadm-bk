@@ -4,27 +4,27 @@ import time
 import numpy as np
 from app.utils import procesar_bytes_imagen, generar_gradcam_base64
 
-# --- CONFIGURACIÓN DE RUTAS DINÁMICAS (Solución al OSError) ---
-# Detecta la raíz del proyecto (/app dentro del contenedor de Render)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# --- CONFIGURACIÓN DE RUTAS INTERNAS (Árbol con models dentro de app) ---
+# Detecta la ubicación de core_model.py (que está en /app/app/)
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Construye la ruta absoluta hacia el modelo .keras
-MODEL_PATH = os.path.join(BASE_DIR, "models", "breast_ultrasound_model.keras")
+# Construye la ruta apuntando directamente a la subcarpeta interna 'models'
+MODEL_PATH = os.path.join(CURRENT_DIR, "models", "breast_ultrasound_model.keras")
 
 print(f"\n--> [SADM EN ARRANQUE] Buscando el modelo de IA en: {MODEL_PATH}")
 
 if not os.path.exists(MODEL_PATH):
-    print(f"❌ [ERROR CRÍTICO] No se encontró el archivo en la ruta: {MODEL_PATH}")
-    # Listar qué archivos hay en la carpeta models para ayudarte a debuggear en los logs si falla
-    models_dir = os.path.join(BASE_DIR, "models")
-    if os.path.exists(models_dir):
-        print(f"Contenido actual de la carpeta models: {os.listdir(models_dir)}")
-    raise FileNotFoundError(f"El archivo del modelo no existe en: {MODEL_PATH}")
+    # Parche de contingencia por si se descargó en la raíz externa por el Dockerfile
+    BASE_DIR = os.path.dirname(CURRENT_DIR)
+    ALT_PATH = os.path.join(BASE_DIR, "models", "breast_ultrasound_model.keras")
+    if os.path.exists(ALT_PATH):
+        MODEL_PATH = ALT_PATH
+    else:
+        raise FileNotFoundError(f"El archivo del modelo no se encontró en la ruta interna ni externa: {MODEL_PATH}")
 
-# Cargar el modelo serializado en formato nativo .keras
+print("--> [SADM] Cargando estructura de red neuronal en entorno clásico...")
 model = tf.keras.models.load_model(MODEL_PATH)
 print("✅ [SADM EN ARRANQUE] Modelo Keras cargado con éxito en memoria.\n")
-
 
 def predecir_lesion(imagen_bytes):
     # Iniciar cronómetro interno para la métrica de sistemas (Latencia operativa)

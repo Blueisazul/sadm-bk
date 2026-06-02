@@ -4,6 +4,7 @@ numpy<2.0.0
 pillow
 opencv-python-headless
 tensorflow-cpu==2.15.0
+tf_keras==2.15.0
 h5py==3.10.0
 pydantic
 python-multipart
