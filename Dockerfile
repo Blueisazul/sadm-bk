@@ -4,7 +4,7 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Instalar dependencias de procesamiento de imágenes y herramientas de red (wget)
+# Instalar dependencias esenciales del sistema para procesamiento de imágenes y descargas
 RUN apt-get update && apt-get install -y \
     libgl1 \
     libglib2.0-0 \
@@ -14,21 +14,21 @@ RUN apt-get update && apt-get install -y \
 # Copiar el archivo de requerimientos
 COPY requirements.txt ./
 
-# Actualizar pip e instalar dependencias
+# Instalar dependencias con las versiones fijadas para Keras 2
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copiar todo el contenido de tu repositorio al contenedor (excepto carpetas grandes locales)
+# Copiar el código del repositorio al contenedor
 COPY . .
 
-# Asegurar que la carpeta models exista físicamente en el contenedor
+# Asegurar la existencia de la carpeta models
 RUN mkdir -p models
 
-# TRUCO MAESTRO: Descarga directa del modelo desde Dropbox al contenedor usando dl=1
+# Descargar tu modelo desde Dropbox de forma limpia durante la compilación
 RUN wget -O models/breast_ultrasound_model.keras "https://www.dropbox.com/scl/fi/7wnka80fx7c5ud4fm2lbn/breast_ultrasound_model.keras?rlkey=uwrly99nyv9q54bw5csgqipyp&st=v70v5j2s&dl=1"
 
-# Exponer el puerto
-EXPOSE 8000
+# PUERTO CRÍTICO PARA HUGGING FACE SPACES
+EXPOSE 7860
 
-# Arrancar con un único worker para proteger la RAM
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+# Arrancar la API apuntando al puerto de Hugging Face
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
