@@ -39,11 +39,28 @@ def sanitizar_estructura_json(data):
             config.pop("batch_shape", None)
             print(f"--> [PARCHE CRÍTICO] 'batch_shape' eliminado con éxito de: {config.get('name')}")
         
-        # 2. Parche para capas de Preprocesamiento / Augmentación (RandomFlip, RandomRotation, etc.)
+        # 2. Parche para capas de Preprocesamiento / Augmentación
         if "Random" in class_name and "data_format" in config:
             config.pop("data_format", None)
             print(f"--> [PARCHE CRÍTICO] 'data_format' obsoleto eliminado de la capa: {config.get('name')} ({class_name})")
         
+        # 3. Parche adaptativo para DTypePolicy (Conversión de objeto de Keras 3 a string clásico)
+        if "dtype" in data and isinstance(data["dtype"], dict):
+            dtype_dict = data["dtype"]
+            # Extraer el nombre de la política (ej: 'mixed_float16' o 'float32')
+            policy_name = dtype_dict.get("config", {}).get("name") or dtype_dict.get("class_name")
+            if policy_name:
+                data["dtype"] = policy_name
+                print(f"--> [PARCHE CRÍTICO] DTypePolicy convertido a string plano: '{policy_name}'")
+
+        # Algunas capas guardan el dtype directamente dentro de su propio bloque 'config'
+        if isinstance(config, dict) and "dtype" in config and isinstance(config["dtype"], dict):
+            dtype_dict = config["dtype"]
+            policy_name = dtype_dict.get("config", {}).get("name") or dtype_dict.get("class_name")
+            if policy_name:
+                config["dtype"] = policy_name
+                print(f"--> [PARCHE CRÍTICO] DTypePolicy interno convertido a string plano: '{policy_name}'")
+
         # Continuar rastreando recursivamente dentro del diccionario
         for clave, valor in data.items():
             sanitizar_estructura_json(valor)
@@ -65,7 +82,7 @@ try:
                 if item.filename == "config.json":
                     config_data = json.loads(buffer.decode('utf-8'))
                     
-                    # Ejecutamos la desinfección profunda multi-capa
+                    # Ejecutamos la desinfección profunda multi-capa y multi-política
                     sanitizar_estructura_json(config_data)
                     
                     buffer = json.dumps(config_data).encode('utf-8')
