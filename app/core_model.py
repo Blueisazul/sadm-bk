@@ -71,3 +71,13 @@ def predecir_lesion(imagen_bytes):
         "gradcam": mapa_gradcam,
         "tiempo_proceso": latencia_ms
     }
+
+
+
+
+
+
+
+
+
+
